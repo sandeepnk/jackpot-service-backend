@@ -1,0 +1,87 @@
+spring:
+  application:
+    name: jackpot-service
+  datasource:
+    url: jdbc:h2:mem:jackpot;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000
+    username: sa
+    password: ''
+    hikari:
+      maximum-pool-size: 10
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.block.ms: 5000
+        delivery.timeout.ms: 10000
+        request.timeout.ms: 5000
+    consumer:
+      group-id: jackpot-service
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        max.poll.interval.ms: 300000
+      max-poll-records: 20
+    listener:
+      ack-mode: record
+    admin:
+      auto-create: false
+server:
+  shutdown: graceful
+  error:
+    include-message: never
+springdoc:
+  paths-to-match: /api/v1/**
+  swagger-ui:
+    url: /openapi.yml
+    disable-swagger-default-url: true
+    try-it-out-enabled: true
+spring.lifecycle.timeout-per-shutdown-phase: 30s
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+jackpot:
+  messaging: local
+  definitions:
+    - id: fixed
+      initial-pool: 1000.00
+      contribution:
+        type: fixed
+        initial-percent: 5
+        minimum-percent: 5
+        pool-step: 100
+        decrease-percent-per-step: 0
+      reward:
+        type: fixed
+        initial-chance-percent: 1
+        pool-limit: 10000
+    - id: variable
+      initial-pool: 1000.00
+      contribution:
+        type: variable
+        initial-percent: 10
+        minimum-percent: 1
+        pool-step: 100
+        decrease-percent-per-step: 1
+      reward:
+        type: variable
+        initial-chance-percent: 0.1
+        pool-limit: 2000.00

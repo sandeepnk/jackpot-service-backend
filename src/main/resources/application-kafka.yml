@@ -1,0 +1,7 @@
+jackpot:
+  messaging: kafka
+spring:
+  kafka:
+    admin:
+      auto-create: true
+      fail-fast: true

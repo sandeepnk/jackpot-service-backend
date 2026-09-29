@@ -1,0 +1,11 @@
+/target/
+/tmp/
+.idea/
+*.iml
+.DS_Store
+.env
+/.vscode/
+/.github/modernize/
+.env.*
+*.pem
+*.key

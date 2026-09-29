@@ -1,0 +1,188 @@
+openapi: 3.0.3
+info:
+  title: Jackpot Service
+  version: 1.0.0
+  description: Contribution and one-time reward evaluation. Amounts use one implicit currency.
+servers:
+  - url: /
+paths:
+  /api/v1/bets:
+    post:
+      operationId: publishBet
+      summary: Publish a bet; replay the same betId after uncertain delivery
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Bet'
+      responses:
+        '202':
+          description: Broker acknowledged or local processing completed; follow Location for result
+          headers:
+            Location:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [betId, status, resultUrl]
+                properties:
+                  betId:
+                    type: string
+                  status:
+                    type: string
+                    enum: [ACCEPTED]
+                  resultUrl:
+                    type: string
+        '400':
+          $ref: '#/components/responses/Problem'
+        '404':
+          $ref: '#/components/responses/Problem'
+        '409':
+          $ref: '#/components/responses/Problem'
+        '503':
+          description: Publication uncertain or service busy; retry with same betId
+          headers:
+            Retry-After:
+              schema:
+                type: string
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /api/v1/bets/{betId}:
+    parameters:
+      - $ref: '#/components/parameters/BetId'
+    get:
+      operationId: getBetResult
+      summary: Get the persisted one-time decision
+      responses:
+        '200':
+          $ref: '#/components/responses/Result'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /api/v1/bets/{betId}/evaluation:
+    parameters:
+      - $ref: '#/components/parameters/BetId'
+    post:
+      operationId: evaluateBet
+      summary: Return the consumer's evaluation; never reroll a processed bet
+      responses:
+        '200':
+          $ref: '#/components/responses/Result'
+        '404':
+          $ref: '#/components/responses/Problem'
+  /api/v1/jackpots:
+    get:
+      operationId: listJackpots
+      responses:
+        '200':
+          description: Current pool snapshots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [jackpotId, initialPool, currentPool]
+                  properties:
+                    jackpotId:
+                      type: string
+                    initialPool:
+                      type: number
+                    currentPool:
+                      type: number
+components:
+  parameters:
+    BetId:
+      in: path
+      name: betId
+      required: true
+      schema:
+        type: string
+        pattern: '^[A-Za-z0-9_-]{1,64}$'
+  responses:
+    Problem:
+      description: RFC 9457 error; BET_NOT_PROCESSED also represents a pending Kafka event
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Result:
+      description: Stable decision, including historical pool snapshots
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/BetResult'
+  schemas:
+    Bet:
+      type: object
+      additionalProperties: false
+      required: [betId, userId, jackpotId, amount]
+      example:
+        betId: swagger-bet-001
+        userId: user-42
+        jackpotId: fixed
+        amount: 100.00
+      properties:
+        betId:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{1,64}$'
+        userId:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{1,64}$'
+        jackpotId:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{1,64}$'
+          example: fixed
+        amount:
+          type: number
+          minimum: 0.01
+          maximum: 999999999999.99
+          multipleOf: 0.01
+    BetResult:
+      type: object
+      required: [betId, userId, jackpotId, stakeAmount, contributionAmount, poolAfterContribution, poolAfterEvaluation, rewardChancePercent, won, rewardAmount, evaluatedAt]
+      properties:
+        betId:
+          type: string
+        userId:
+          type: string
+        jackpotId:
+          type: string
+        stakeAmount:
+          type: number
+        contributionAmount:
+          type: number
+        poolAfterContribution:
+          type: number
+        poolAfterEvaluation:
+          type: number
+        rewardChancePercent:
+          type: number
+          minimum: 0
+          maximum: 100
+        won:
+          type: boolean
+        rewardAmount:
+          type: number
+        evaluatedAt:
+          type: string
+          format: date-time
+    Problem:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        code:
+          type: string
